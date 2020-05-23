@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# Generation passowrds
+DBPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
+SFTPPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
+#PASSWORD=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
+ROOTDIR=/var/www/
+HOMEDIR=/home/$USER
+echo $HOMEDIR
+apt install nginx python3-pip
+pip3 install virtualenv
+echo "Enter the site name:"
+read SITENAME
+echo "Enter domain name"
+read DOMAIN
+
+#mkdir /var/www/$SITENAME
+mkdir $HOMEDIR/env 
+
+echo "Trying to setup a virtual environment..."
+virtualenv -p python3 $HOMEDIR/env/$SITENAME
+source $HOMEDIR/env/$SITENAME/bin/activate
+pip install gunicorn django
+cd ${ROOTDIR}
+django-admin.py startproject $SITENAME
+#mv ${ROOTDIR}${SITENAME}/${SITENAME} ${ROOTDIR}${SITENAME}/app
+FINDTHIS="ALLOWED_HOSTS = \[\]"
+TOTHIS="ALLOWED_HOSTS = \[\'$DOMAIN\'\]"
+sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${ROOTDIR}${SITENAME}/$SITENAME/settings.py
+
+echo "Creating NGINX config file..."
+echo "server {
+    listen 80;
+    server_name $DOMAIN www.$DOMAIN;
+    error_log /var/log/nginx/$SITENAME.error.log;
+    access_log /var/log/nginx/$SITENAME.access.log;
+
+    location /static/ {
+        alias /var/www/$SITENAME;
+    }
+
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/run/gunicorn_$SITENAME.sock;
+    }
+}" > /etc/nginx/sites-available/$SITENAME.conf
+ln -s /etc/nginx/sites-available/$SITENAME.conf /etc/nginx/sites-enabled/$SITENAME.conf
+systemctl restart nginx
+
+echo "Creating Gunicorn config file..."
+echo "[Unit]
+Description=gunicorn daemon
+After=network.target
+
+[Service]
+User=$USER
+Group=www-data
+WorkingDirectory=${ROOTDIR}${SITENAME}
+ExecStart=$HOMEDIR/env/$SITENAME/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn_$SITENAME.sock $SITENAME.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
+" > /etc/systemd/system/gunicorn_$SITENAME.service
+deactivate
+systemctl start gunicorn_$SITENAME
+systemctl enable gunicorn_$SITENAME

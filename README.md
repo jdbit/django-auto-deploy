@@ -1,6 +1,6 @@
 # Deploy multiple Django websites automatically
 
-This script allows you to install multiple websites on the Django framework. It automatically installs all the necessary dependencies (Nginx, Gunicorn, MariaDB) on the server, prepares a python virtual environment, and configure the MariaDB database. Just by typing one command in the command line, you get the fully working Django website on your own domain.
+This script allows you to install multiple websites on the Django framework. It automatically installs all the necessary dependencies (Nginx, Gunicorn, MariaDB) on the server, prepares a python virtual environment, and configure the MariaDB database. Just by typing one command in the command line, you get the fully working Django website with configured database (MariaDB) and on your own domain.
 
 ## Usage:
 

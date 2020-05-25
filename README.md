@@ -6,7 +6,9 @@ This script allows you to install multiple websites on the Django framework. It 
 
 Execute this command on your server:
 
-`curl -o addsite https://raw.githubusercontent.com/jdbit/django-auto-deploy/master/addsite && chmod +x addsite && sudo ./addsite`
+```curl -o addsite https://raw.githubusercontent.com/jdbit/django-auto-deploy/master/addsite && chmod +x addsite && sudo ./addsite```
 
 Enter the desired website and domain name when requested and your website is ready to use!
-You can set up as many Django as you want with this script. I've tested it on the latest Ubuntu Server 20.04 installed on DigitalOcean droplet. 
+You can set up as many Django as you want with this script. 
+
+If you need a good and not expensive hosting for your Django projects, [check DigitalOcean](https://m.do.co/c/008d3315ed7b) (get $100 in credit for 60 days through my referral link), you can run a few Django websites on a single virtual server just for 5$/month. I've tested it on the latest Ubuntu Server 20.04 installed on DigitalOcean 5$/month droplet.

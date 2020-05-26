@@ -3,30 +3,35 @@
 # Generation passowrds
 DBPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 SFTPPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
-#PASSWORD=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 ROOTDIR=/var/www/
-HOMEDIR=/home/$USER
 echo $HOMEDIR
-apt install nginx python3-pip
-pip3 install virtualenv
-echo "Enter the site name:"
+echo "Enter the site name (spaces and special symbols are not allowed):"
 read SITENAME
-echo "Enter domain name"
+echo "Enter domain name:"
 read DOMAIN
+if [ -d "${ROOTDIR}${SITENAME}" ]; then
+    echo "Error: directory /var/www/$SITENAME already exists"
+    exit 1
+fi
+HOMEDIR=${ROOTDIR}${SITENAME}
+echo "Installing Nginx, Python pip, and MySQL server..."
+mkdir /var/www/$SITENAME
+apt install nginx python3-pip mysql-server &> $HOMEDIR/deploy.log
+pip3 install virtualenv >> $HOMEDIR/deploy.log
 
-#mkdir /var/www/$SITENAME
-mkdir $HOMEDIR/env 
+mkdir -p $HOMEDIR/env 
 
 echo "Trying to setup a virtual environment..."
-virtualenv -p python3 $HOMEDIR/env/$SITENAME
-source $HOMEDIR/env/$SITENAME/bin/activate
-pip install gunicorn django
+virtualenv -p python3 $HOMEDIR/env >> $HOMEDIR/deploy.log
+source $HOMEDIR/env/bin/activate
+pip install gunicorn django mysql-connector-python >> $HOMEDIR/deploy.log
+cd ${HOMEDIR}
+django-admin.py startproject $SITENAME .
 cd ${ROOTDIR}
-django-admin.py startproject $SITENAME
 #mv ${ROOTDIR}${SITENAME}/${SITENAME} ${ROOTDIR}${SITENAME}/app
 FINDTHIS="ALLOWED_HOSTS = \[\]"
 TOTHIS="ALLOWED_HOSTS = \[\'$DOMAIN\'\]"
-sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${ROOTDIR}${SITENAME}/$SITENAME/settings.py
+sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/$SITENAME/settings.py
 
 echo "Creating NGINX config file..."
 echo "server {
@@ -55,8 +60,8 @@ After=network.target
 [Service]
 User=$USER
 Group=www-data
-WorkingDirectory=${ROOTDIR}${SITENAME}
-ExecStart=$HOMEDIR/env/$SITENAME/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn_$SITENAME.sock $SITENAME.wsgi:application
+WorkingDirectory=${HOMEDIR}
+ExecStart=$HOMEDIR/env/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn_$SITENAME.sock $SITENAME.wsgi:application
 
 [Install]
 WantedBy=multi-user.target
@@ -64,3 +69,33 @@ WantedBy=multi-user.target
 deactivate
 systemctl start gunicorn_$SITENAME
 systemctl enable gunicorn_$SITENAME
+
+# creating a database
+SQL="CREATE DATABASE IF NOT EXISTS $SITENAME DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+CREATE USER '$SITENAME'@'localhost' IDENTIFIED BY '$DBPASS';
+GRANT ALL PRIVILEGES ON $SITENAME.* TO '$SITENAME'@'localhost';
+FLUSH PRIVILEGES;"
+mysql -uroot -e "$SQL"
+FINDTHIS="'default': {"
+TOTHIS="'default': {\n        'ENGINE': 'mysql.connector.django',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    }\n    'SQLite': {"
+sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/$SITENAME/settings.py
+source $HOMEDIR/env/bin/activate
+
+echo "
+Done!
+MySQL username: $SITENAME
+MySQL password: $DBPASS
+
+Things to do:
+Go to the working directory: cd $HOMEDIR
+Activate virtual environment: source $HOMEDIR/env/bin/activate
+Create Django super user: ./manage.py createsuperuser
+Apply migrations: ./manage.py makemigrations && ./manage.py migrate
+" > /var/www/$SITENAME/pass.txt
+
+GIT_IGNORE="__pycache__/
+db.sqlite3
+migrations/
+media/
+env/"
+echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore

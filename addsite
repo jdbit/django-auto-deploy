@@ -19,7 +19,7 @@ fi
 
 # Creating the working directory
 HOMEDIR=${ROOTDIR}${SITENAME}
-mkdir /var/www/$SITENAME
+mkdir -p /var/www/$SITENAME
 
 # Create a new Linux user and add it to sftp group
 echo "Creating user $SITENAME..."

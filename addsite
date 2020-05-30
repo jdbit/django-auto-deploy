@@ -13,9 +13,26 @@ if [ -d "${ROOTDIR}${SITENAME}" ]; then
     echo "Error: directory /var/www/$SITENAME already exists"
     exit 1
 fi
+
 HOMEDIR=${ROOTDIR}${SITENAME}
-echo "Installing Nginx, Python pip, and MySQL server..."
 mkdir /var/www/$SITENAME
+
+echo "Creating user $SITENAME..."
+useradd $SITENAME -m -G sftp -s "/bin/false" -d "/var/www/$SITENAME"
+if [ "$?" -ne 0 ]; then
+	echo "Can't add user"
+	exit 1
+fi
+echo $SFTPPASS > ./tmp
+echo $SFTPPASS >> ./tmp
+cat ./tmp | passwd $SITENAME
+rm ./tmp
+
+chmod -R 755 /var/www/$SITENAME/
+chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
+chown root:root /var/www/$SITENAME
+
+echo "Installing Nginx, Python pip, and MySQL server..."
 apt install nginx python3-pip mysql-server &> $HOMEDIR/deploy.log
 pip3 install virtualenv >> $HOMEDIR/deploy.log
 
@@ -83,8 +100,9 @@ source $HOMEDIR/env/bin/activate
 
 echo "
 Done!
-MySQL username: $SITENAME
+MySQL/SFTP username: $SITENAME
 MySQL password: $DBPASS
+SFTP password: $SFTPPASS
 
 Things to do:
 Go to the working directory: cd $HOMEDIR
@@ -99,3 +117,4 @@ migrations/
 media/
 env/"
 echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore
+cat /var/www/$SITENAME/pass.txt

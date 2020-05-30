@@ -111,7 +111,7 @@ TOTHIS="'default': {\n        'ENGINE': 'django.db.backends.mysql',\n        'NA
 sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
 source $HOMEDIR/env/bin/activate
 
-# Save passwords and helpers to pass.txt
+# Print passwords and helpers
 echo "
 Done!
 MySQL/SFTP username: $SITENAME
@@ -123,16 +123,12 @@ Go to the working directory: cd $HOMEDIR
 Activate virtual environment: source $HOMEDIR/env/bin/activate
 Create Django super user: ./manage.py createsuperuser
 Apply migrations: ./manage.py makemigrations && ./manage.py migrate
-" > /var/www/$SITENAME/pass.txt
+"
 
 # Create .gitignore file
 GIT_IGNORE="__pycache__/
 db.sqlite3
-pass.txt
 migrations/
 media/
 env/"
 echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore
-
-# Print pass.txt
-cat /var/www/$SITENAME/pass.txt

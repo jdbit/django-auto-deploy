@@ -13,7 +13,7 @@ This script allows you to set up multiple Django websites easily. It automatical
 7. Create NGINX and Gunicorn config files (a separate config file for each site)
 8. Save passwords to `pass.txt` and create `.gitignore` file
 
-## Usage
+## Installation & Usage
 
 Execute this command on your server:
 
@@ -27,9 +27,12 @@ You just need to enter the desired website and domain name when requested and yo
 
 All the sites will be placed to `/var/www/{SITENAME}` directory. Before running the script, make sure there is no folder in `/var/www` named as the site you are going to create.
 
+## Installation logs
+
 In the working directory `/var/www/$SITENAME` two files will be created:
-`deploy.log` - all the bash script output will be saved to this file, you can check it to ensure there were no errors during the installation process
-`pass.txt` - a file with SFTP and MySQL passwords.
+
+* `deploy.log` - all the bash script output will be saved to this file, you can check it to ensure there were no errors during the installation process
+* `pass.txt` - a file with SFTP and MySQL passwords.
 
 The script creates Python virtual environment in `/var/www/{SITENAME}/env` directory, you can activate the virtual environment by this command:
 

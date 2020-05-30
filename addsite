@@ -1,22 +1,27 @@
 #!/bin/bash
 
-# Generation passowrds
+# Generate passowrds
 DBPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 SFTPPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 ROOTDIR=/var/www/
-echo $HOMEDIR
-echo "Enter the site name (spaces and special symbols are not allowed):"
+
+# Input site name and domain name
+echo "Enter your site name (spaces and special symbols are not allowed):"
 read SITENAME
-echo "Enter domain name:"
+echo "Enter your domain name:"
 read DOMAIN
+
+# Check if the /var/www/$SITENAME dir exists
 if [ -d "${ROOTDIR}${SITENAME}" ]; then
     echo "Error: directory /var/www/$SITENAME already exists"
     exit 1
 fi
 
+# Creating the working directory
 HOMEDIR=${ROOTDIR}${SITENAME}
 mkdir /var/www/$SITENAME
 
+# Create a new Linux user and add it to sftp group
 echo "Creating user $SITENAME..."
 useradd $SITENAME -m -G sftp -s "/bin/false" -d "/var/www/$SITENAME"
 if [ "$?" -ne 0 ]; then
@@ -28,16 +33,18 @@ echo $SFTPPASS >> ./tmp
 cat ./tmp | passwd $SITENAME
 rm ./tmp
 
+# Assigning permissions to the working directory
 chmod -R 755 /var/www/$SITENAME/
 chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
 chown root:root /var/www/$SITENAME
 
+# Install necessary dependencies and log to deploy.log
 echo "Installing Nginx, Python pip, and MySQL server..."
 apt install nginx python3-pip mysql-server &> $HOMEDIR/deploy.log
 pip3 install virtualenv >> $HOMEDIR/deploy.log
 
+# Setup Python virtual environment, Django, Gunicorn, and Python MySQL connector
 mkdir -p $HOMEDIR/env 
-
 echo "Trying to setup a virtual environment..."
 virtualenv -p python3 $HOMEDIR/env >> $HOMEDIR/deploy.log
 source $HOMEDIR/env/bin/activate
@@ -45,11 +52,13 @@ pip install gunicorn django mysql-connector-python >> $HOMEDIR/deploy.log
 cd ${HOMEDIR}
 django-admin.py startproject $SITENAME .
 cd ${ROOTDIR}
-#mv ${ROOTDIR}${SITENAME}/${SITENAME} ${ROOTDIR}${SITENAME}/app
+
+# Add the domain to ALLOWED_HOSTS in the settings.py
 FINDTHIS="ALLOWED_HOSTS = \[\]"
 TOTHIS="ALLOWED_HOSTS = \[\'$DOMAIN\'\]"
 sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/$SITENAME/settings.py
 
+# Create NGINX config file
 echo "Creating NGINX config file..."
 echo "server {
     listen 80;
@@ -69,6 +78,7 @@ echo "server {
 ln -s /etc/nginx/sites-available/$SITENAME.conf /etc/nginx/sites-enabled/$SITENAME.conf
 systemctl restart nginx
 
+# Create Gunicorn config file
 echo "Creating Gunicorn config file..."
 echo "[Unit]
 Description=gunicorn daemon
@@ -83,11 +93,13 @@ ExecStart=$HOMEDIR/env/bin/gunicorn --access-logfile - --workers 3 --bind unix:/
 [Install]
 WantedBy=multi-user.target
 " > /etc/systemd/system/gunicorn_$SITENAME.service
+
+# exit from the virtual environment and restart Gunicorn
 deactivate
 systemctl start gunicorn_$SITENAME
 systemctl enable gunicorn_$SITENAME
 
-# creating a database
+# Create a database and add the necessary config lines to app/settings.py
 SQL="CREATE DATABASE IF NOT EXISTS $SITENAME DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
 CREATE USER '$SITENAME'@'localhost' IDENTIFIED BY '$DBPASS';
 GRANT ALL PRIVILEGES ON $SITENAME.* TO '$SITENAME'@'localhost';
@@ -98,6 +110,7 @@ TOTHIS="'default': {\n        'ENGINE': 'mysql.connector.django',\n        'NAME
 sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/$SITENAME/settings.py
 source $HOMEDIR/env/bin/activate
 
+# Save passwords and helpers to pass.txt
 echo "
 Done!
 MySQL/SFTP username: $SITENAME
@@ -111,10 +124,14 @@ Create Django super user: ./manage.py createsuperuser
 Apply migrations: ./manage.py makemigrations && ./manage.py migrate
 " > /var/www/$SITENAME/pass.txt
 
+# Create .gitignore file
 GIT_IGNORE="__pycache__/
 db.sqlite3
+pass.txt
 migrations/
 media/
 env/"
 echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore
+
+# Print pass.txt
 cat /var/www/$SITENAME/pass.txt

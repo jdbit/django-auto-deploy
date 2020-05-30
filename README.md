@@ -17,7 +17,9 @@ This script allows you to install multiple Django websites with ease. It automat
 
 Execute this command on your server:
 
-```curl -o addsite https://raw.githubusercontent.com/jdbit/django-auto-deploy/master/addsite && chmod +x addsite && sudo ./addsite```
+```
+curl -o addsite https://raw.githubusercontent.com/jdbit/django-auto-deploy/master/addsite && chmod +x addsite && sudo ./addsite
+```
 
 This command will clone the script to the current directory, make it executable, and execute with root privileges.
 

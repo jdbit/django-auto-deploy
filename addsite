@@ -6,9 +6,9 @@ SFTPPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 ROOTDIR=/var/www/
 
 # Input site name and domain name
-echo "Enter your site name (spaces and special symbols are not allowed):"
+echo -n "Enter your site name (spaces and special symbols are not allowed):"
 read SITENAME
-echo "Enter your domain name:"
+echo -n "Enter your domain name:"
 read DOMAIN
 
 # Check if the /var/www/$SITENAME dir exists
@@ -23,14 +23,14 @@ mkdir /var/www/$SITENAME
 
 # Create a new Linux user and add it to sftp group
 echo "Creating user $SITENAME..."
-useradd $SITENAME -m -G sftp -s "/bin/false" -d "/var/www/$SITENAME"
+useradd $SITENAME -m -G sftp -s "/bin/false" -d "/var/www/$SITENAME" 2>> $HOMEDIR/deploy.log
 if [ "$?" -ne 0 ]; then
 	echo "Can't add user"
 	exit 1
 fi
 echo $SFTPPASS > ./tmp
 echo $SFTPPASS >> ./tmp
-cat ./tmp | passwd $SITENAME
+cat ./tmp | passwd $SITENAME 2>> $HOMEDIR/deploy.log
 rm ./tmp
 
 # Assigning permissions to the working directory
@@ -40,23 +40,23 @@ chown root:root /var/www/$SITENAME
 
 # Install necessary dependencies and log to deploy.log
 echo "Installing Nginx, Python pip, and MySQL server..."
-apt install nginx python3-pip mysql-server &> $HOMEDIR/deploy.log
+apt install -y nginx python3-pip mysql-server libmysqlclient-dev &> $HOMEDIR/deploy.log
 pip3 install virtualenv >> $HOMEDIR/deploy.log
 
 # Setup Python virtual environment, Django, Gunicorn, and Python MySQL connector
 mkdir -p $HOMEDIR/env 
-echo "Trying to setup a virtual environment..."
+echo "Trying to set up a virtual environment..."
 virtualenv -p python3 $HOMEDIR/env >> $HOMEDIR/deploy.log
 source $HOMEDIR/env/bin/activate
-pip install gunicorn django mysql-connector-python >> $HOMEDIR/deploy.log
+pip install gunicorn django mysqlclient >> $HOMEDIR/deploy.log
 cd ${HOMEDIR}
-django-admin.py startproject $SITENAME .
+django-admin.py startproject app .
 cd ${ROOTDIR}
 
 # Add the domain to ALLOWED_HOSTS in the settings.py
 FINDTHIS="ALLOWED_HOSTS = \[\]"
 TOTHIS="ALLOWED_HOSTS = \[\'$DOMAIN\'\]"
-sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/$SITENAME/settings.py
+sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
 
 # Create NGINX config file
 echo "Creating NGINX config file..."
@@ -75,7 +75,7 @@ echo "server {
         proxy_pass http://unix:/run/gunicorn_$SITENAME.sock;
     }
 }" > /etc/nginx/sites-available/$SITENAME.conf
-ln -s /etc/nginx/sites-available/$SITENAME.conf /etc/nginx/sites-enabled/$SITENAME.conf
+ln -s /etc/nginx/sites-available/$SITENAME.conf /etc/nginx/sites-enabled/$SITENAME.conf >> $HOMEDIR/deploy.log
 systemctl restart nginx
 
 # Create Gunicorn config file
@@ -88,7 +88,7 @@ After=network.target
 User=$USER
 Group=www-data
 WorkingDirectory=${HOMEDIR}
-ExecStart=$HOMEDIR/env/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn_$SITENAME.sock $SITENAME.wsgi:application
+ExecStart=$HOMEDIR/env/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn_$SITENAME.sock app.wsgi:application
 
 [Install]
 WantedBy=multi-user.target
@@ -106,8 +106,8 @@ GRANT ALL PRIVILEGES ON $SITENAME.* TO '$SITENAME'@'localhost';
 FLUSH PRIVILEGES;"
 mysql -uroot -e "$SQL"
 FINDTHIS="'default': {"
-TOTHIS="'default': {\n        'ENGINE': 'mysql.connector.django',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    }\n    'SQLite': {"
-sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/$SITENAME/settings.py
+TOTHIS="'default': {\n        'ENGINE': 'django.db.backends.mysql',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    },\n    'SQLite': {"
+sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
 source $HOMEDIR/env/bin/activate
 
 # Save passwords and helpers to pass.txt

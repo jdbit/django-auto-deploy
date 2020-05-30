@@ -23,6 +23,7 @@ mkdir -p /var/www/$SITENAME
 
 # Create a new Linux user and add it to sftp group
 echo "Creating user $SITENAME..."
+groupadd sftp 2> /dev/null
 useradd $SITENAME -m -G sftp -s "/bin/false" -d "/var/www/$SITENAME" 2>> $HOMEDIR/deploy.log
 if [ "$?" -ne 0 ]; then
 	echo "Can't add user"

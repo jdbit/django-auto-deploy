@@ -10,7 +10,7 @@ This script allows you to set up multiple Django websites easily. It automatical
 2. Create a working directory in `/var/www/$SITENAME`
 3. Create a new Linux user and add it to the sftp group
 4. Assign user permissions to the working directory
-5. Install necessary dependencies: nginx, python3-pip, mysql-server, virtualenv, gunicorn, django, mysql-connector-python
+5. Install necessary dependencies: nginx, python3-pip, mysql-server, mariadb-server, virtualenv, gunicorn, django, mysql-connector-python
 6. Create a new Django project, database, and configure Django to work with the MySQL/MariaDB database
 7. Create NGINX and Gunicorn config files (a separate config file for each site)
 8. Save passwords to `pass.txt` and create `.gitignore` file

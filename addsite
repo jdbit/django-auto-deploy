@@ -5,6 +5,22 @@ DBPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 SFTPPASS=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c12`
 ROOTDIR=/var/www/
 
+while true
+do
+	echo "Select database server type:
+	1) MySQL
+	2) MariaDB
+	3) SQLite"
+	read -p "Enter choice [1 - 3] " CHOICE
+	case $CHOICE in
+	1) DBPACKAGE="mysql-server"; break ;;
+	2) DBPACKAGE="mariadb"; break ;;
+	3) DBPACKAGE=""; break ;;
+	*) echo -e "${RED}Error...${STD}" && sleep 1
+	esac
+done
+echo $DBPACKAGE;
+
 # Input site name and domain name
 echo -n "Enter your site name (spaces and special symbols are not allowed):"
 read SITENAME
@@ -41,7 +57,7 @@ chown root:root /var/www/$SITENAME
 
 # Install necessary dependencies and log to deploy.log
 echo "Installing Nginx, Python pip, and MySQL server..."
-apt install -y nginx python3-pip mysql-server libmysqlclient-dev &> $HOMEDIR/deploy.log
+apt install -y nginx python3-pip $DBPACKAGE libmysqlclient-dev &> $HOMEDIR/deploy.log
 pip3 install virtualenv >> $HOMEDIR/deploy.log
 
 # Setup Python virtual environment, Django, Gunicorn, and Python MySQL connector
@@ -100,15 +116,19 @@ deactivate
 systemctl start gunicorn_$SITENAME
 systemctl enable gunicorn_$SITENAME
 
-# Create a database and add the necessary config lines to app/settings.py
-SQL="CREATE DATABASE IF NOT EXISTS $SITENAME DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-CREATE USER '$SITENAME'@'localhost' IDENTIFIED BY '$DBPASS';
-GRANT ALL PRIVILEGES ON $SITENAME.* TO '$SITENAME'@'localhost';
-FLUSH PRIVILEGES;"
-mysql -uroot -e "$SQL"
-FINDTHIS="'default': {"
-TOTHIS="'default': {\n        'ENGINE': 'django.db.backends.mysql',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    },\n    'SQLite': {"
-sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
+if [[ $DBPACKAGE != "" ]]; then
+	# Create a database and add the necessary config lines to app/settings.py
+	SQL="CREATE DATABASE IF NOT EXISTS $SITENAME DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+	CREATE USER '$SITENAME'@'localhost' IDENTIFIED BY '$DBPASS';
+	GRANT ALL PRIVILEGES ON $SITENAME.* TO '$SITENAME'@'localhost';
+	FLUSH PRIVILEGES;"
+	mysql -uroot -e "$SQL"
+	FINDTHIS="'default': {"
+	TOTHIS="'default': {\n        'ENGINE': 'django.db.backends.mysql',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    },\n    'SQLite': {"
+	sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
+fi
+
+# activate Python virtual environment
 source $HOMEDIR/env/bin/activate
 
 # Print passwords and helpers

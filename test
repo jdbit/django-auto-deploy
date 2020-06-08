@@ -10,7 +10,8 @@ do
 	echo "Select database server type:
 	1) MySQL
 	2) MariaDB
-	3) SQLite"
+	3) PostgreSQL
+	4) SQLite"
 	read -p "Enter choice [1 - 3] " CHOICE
 	case $CHOICE in
 	1) DBPACKAGE="mysql-server"; break ;;
@@ -62,66 +63,6 @@ chmod -R 755 /var/www/$SITENAME/
 chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
 chown root:root /var/www/$SITENAME
 
-# Install necessary dependencies and log to deploy.log
-echo "Installing Nginx, Python pip, and MySQL server..."
-apt install -y nginx python3-pip $DBPACKAGE libmysqlclient-dev &> $HOMEDIR/deploy.log
-pip3 install virtualenv >> $HOMEDIR/deploy.log
-
-# Setup Python virtual environment, Django, Gunicorn, and Python MySQL connector
-mkdir -p $HOMEDIR/env 
-echo "Trying to set up a virtual environment..."
-virtualenv -p python3 $HOMEDIR/env >> $HOMEDIR/deploy.log
-source $HOMEDIR/env/bin/activate
-pip install gunicorn django $DBCONNECTOR >> $HOMEDIR/deploy.log
-cd ${HOMEDIR}
-django-admin.py startproject app .
-cd ${ROOTDIR}
-
-# Add the domain to ALLOWED_HOSTS in the settings.py
-FINDTHIS="ALLOWED_HOSTS = \[\]"
-TOTHIS="ALLOWED_HOSTS = \[\'$DOMAIN\'\]"
-sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
-
-# Create NGINX config file
-echo "Creating NGINX config file..."
-echo "server {
-    listen 80;
-    server_name $DOMAIN www.$DOMAIN;
-    error_log /var/log/nginx/$SITENAME.error.log;
-    access_log /var/log/nginx/$SITENAME.access.log;
-
-    location /static/ {
-        alias /var/www/$SITENAME;
-    }
-
-    location / {
-        include proxy_params;
-        proxy_pass http://unix:/run/gunicorn_$SITENAME.sock;
-    }
-}" > /etc/nginx/sites-available/$SITENAME.conf
-ln -s /etc/nginx/sites-available/$SITENAME.conf /etc/nginx/sites-enabled/$SITENAME.conf >> $HOMEDIR/deploy.log
-systemctl restart nginx
-
-# Create Gunicorn config file
-echo "Creating Gunicorn config file..."
-echo "[Unit]
-Description=gunicorn daemon
-After=network.target
-
-[Service]
-User=$USER
-Group=www-data
-WorkingDirectory=${HOMEDIR}
-ExecStart=$HOMEDIR/env/bin/gunicorn --access-logfile - --workers 3 --bind unix:/run/gunicorn_$SITENAME.sock app.wsgi:application
-
-[Install]
-WantedBy=multi-user.target
-" > /etc/systemd/system/gunicorn_$SITENAME.service
-
-# exit from the virtual environment and restart Gunicorn
-deactivate
-systemctl start gunicorn_$SITENAME
-systemctl enable gunicorn_$SITENAME
 
 if [[ $DBPACKAGE == "mysql-server" || $DBPACKAGE == "mariadb-server" ]]; then
 	# Create a database and add the necessary config lines to app/settings.py
@@ -141,28 +82,3 @@ if [[ $DBPACKAGE != "" ]]; then
 	TOTHIS="'default': {\n        'ENGINE': '$DBENGINE',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    },\n    'SQLite': {"
 	sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
 fi
-
-# activate Python virtual environment
-source $HOMEDIR/env/bin/activate
-
-# Print passwords and helpers
-echo "
-Done!
-MySQL/SFTP username: $SITENAME
-MySQL password: $DBPASS
-SFTP password: $SFTPPASS
-
-Things to do:
-Go to the working directory: cd $HOMEDIR
-Activate virtual environment: source $HOMEDIR/env/bin/activate
-Create Django super user: ./manage.py createsuperuser
-Apply migrations: ./manage.py makemigrations && ./manage.py migrate
-"
-
-# Create .gitignore file
-GIT_IGNORE="__pycache__/
-db.sqlite3
-migrations/
-media/
-env/"
-echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore

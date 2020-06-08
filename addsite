@@ -10,8 +10,9 @@ do
 	echo "Select database server type:
 	1) MySQL
 	2) MariaDB
-	3) SQLite"
-	read -p "Enter choice [1 - 3] " CHOICE
+	3) PostgreSQL
+	4) SQLite"
+	read -p "Enter choice [1 - 4] " CHOICE
 	case $CHOICE in
 	1) DBPACKAGE="mysql-server"; break ;;
 	2) DBPACKAGE="mariadb-server"; break ;;
@@ -23,10 +24,12 @@ done
 if [[ $DBPACKAGE == "mysql-server" || $DBPACKAGE == "mariadb-server" ]]; then
     DBCONNECTOR="mysqlclient"
     DBENGINE="django.db.backends.mysql"
+    DBPORT="3306"
 fi
 if [[ $DBPACKAGE == "postgresql postgresql-contrib" ]]; then
-    DBCONNECTOR="psycopg2"
+    DBCONNECTOR="psycopg2-binary"
     DBENGINE="django.db.backends.postgresql_psycopg2"
+    DBPORT="5432"
 fi
 
 # Input site name and domain name
@@ -57,10 +60,6 @@ echo $SFTPPASS >> ./tmp
 cat ./tmp | passwd $SITENAME 2>> $HOMEDIR/deploy.log
 rm ./tmp
 
-# Assigning permissions to the working directory
-chmod -R 755 /var/www/$SITENAME/
-chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
-chown root:root /var/www/$SITENAME
 
 # Install necessary dependencies and log to deploy.log
 echo "Installing Nginx, Python pip, and MySQL server..."
@@ -91,7 +90,7 @@ echo "server {
     access_log /var/log/nginx/$SITENAME.access.log;
 
     location /static/ {
-        alias /var/www/$SITENAME;
+        root /var/www/$SITENAME;
     }
 
     location / {
@@ -138,12 +137,20 @@ if [[ $DBPACKAGE == "postgresql postgresql-contrib" ]]; then
 fi
 if [[ $DBPACKAGE != "" ]]; then
 	FINDTHIS="'default': {"
-	TOTHIS="'default': {\n        'ENGINE': '$DBENGINE',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    },\n    'SQLite': {"
+	TOTHIS="'default': {\n        'ENGINE': '$DBENGINE',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '$DBPORT',\n    },\n    'SQLite': {"
 	sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
 fi
 
 # activate Python virtual environment
 source $HOMEDIR/env/bin/activate
+
+# configure static folder
+echo 'STATIC_ROOT = os.path.join(BASE_DIR, "static")
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"' >> ${HOMEDIR}/app/settings.py
+mkdir -p ${HOMEDIR}/static/
+mkdir -p ${HOMEDIR}/media/
+
 
 # Print passwords and helpers
 echo "
@@ -166,3 +173,12 @@ migrations/
 media/
 env/"
 echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore
+
+# Assigning permissions to the working directory
+chmod -R 755 /var/www/$SITENAME/
+chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
+chown root:root /var/www/$SITENAME
+
+# collect static files
+cd $HOMEDIR
+./manage.py collectstatic --noinput

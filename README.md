@@ -2,7 +2,7 @@
 
 This script allows you to set up multiple Django websites easily. It automatically installs all the necessary dependencies (Nginx, Gunicorn, MySQL/MariaDB/PostgreSQL, and Django database connector) on your Ubuntu server, prepares a python virtual environment, and configure the selected database. Just by typing one command in the command line, you get the fully working Django website with a configured database.
 
-![demo](demo.gif)
+![demo](demo2.gif)
 
 ## Features and what is this script doing
 

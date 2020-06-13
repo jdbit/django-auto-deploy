@@ -10,16 +10,27 @@ do
 	echo "Select database server type:
 	1) MySQL
 	2) MariaDB
-	3) SQLite"
-	read -p "Enter choice [1 - 3] " CHOICE
+	3) PostgreSQL
+	4) SQLite"
+	read -p "Enter choice [1 - 4] " CHOICE
 	case $CHOICE in
 	1) DBPACKAGE="mysql-server"; break ;;
 	2) DBPACKAGE="mariadb-server"; break ;;
-	3) DBPACKAGE=""; break ;;
+	3) DBPACKAGE="postgresql postgresql-contrib"; break ;;
+	4) DBPACKAGE=""; break ;;
 	*) echo -e "${RED}Error...${STD}" && sleep 1
 	esac
 done
-echo $DBPACKAGE;
+if [[ $DBPACKAGE == "mysql-server" || $DBPACKAGE == "mariadb-server" ]]; then
+    DBCONNECTOR="mysqlclient"
+    DBENGINE="django.db.backends.mysql"
+    DBPORT="3306"
+fi
+if [[ $DBPACKAGE == "postgresql postgresql-contrib" ]]; then
+    DBCONNECTOR="psycopg2-binary"
+    DBENGINE="django.db.backends.postgresql_psycopg2"
+    DBPORT="5432"
+fi
 
 # Input site name and domain name
 echo -n "Enter your site name (spaces and special symbols are not allowed):"
@@ -49,10 +60,6 @@ echo $SFTPPASS >> ./tmp
 cat ./tmp | passwd $SITENAME 2>> $HOMEDIR/deploy.log
 rm ./tmp
 
-# Assigning permissions to the working directory
-chmod -R 755 /var/www/$SITENAME/
-chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
-chown root:root /var/www/$SITENAME
 
 # Install necessary dependencies and log to deploy.log
 echo "Installing Nginx, Python pip, and MySQL server..."
@@ -64,7 +71,7 @@ mkdir -p $HOMEDIR/env
 echo "Trying to set up a virtual environment..."
 virtualenv -p python3 $HOMEDIR/env >> $HOMEDIR/deploy.log
 source $HOMEDIR/env/bin/activate
-pip install gunicorn django mysqlclient >> $HOMEDIR/deploy.log
+pip install gunicorn django $DBCONNECTOR >> $HOMEDIR/deploy.log
 cd ${HOMEDIR}
 django-admin.py startproject app .
 cd ${ROOTDIR}
@@ -81,10 +88,24 @@ echo "server {
     server_name $DOMAIN www.$DOMAIN;
     error_log /var/log/nginx/$SITENAME.error.log;
     access_log /var/log/nginx/$SITENAME.access.log;
+    rewrite_log on;
+    server_tokens off;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection '1; mode=block';
 
     location /static/ {
-        alias /var/www/$SITENAME;
+        root /var/www/$SITENAME;
+	expires 30d;
+        log_not_found off;
+        access_log off;
     }
+
+    location /media/ {
+        root /var/www/$SITENAME;
+	expires 30d;
+        log_not_found off;
+        access_log off;
+     }
 
     location / {
         include proxy_params;
@@ -115,20 +136,35 @@ deactivate
 systemctl start gunicorn_$SITENAME
 systemctl enable gunicorn_$SITENAME
 
-if [[ $DBPACKAGE != "" ]]; then
+if [[ $DBPACKAGE == "mysql-server" || $DBPACKAGE == "mariadb-server" ]]; then
 	# Create a database and add the necessary config lines to app/settings.py
 	SQL="CREATE DATABASE IF NOT EXISTS $SITENAME DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
 	CREATE USER '$SITENAME'@'localhost' IDENTIFIED BY '$DBPASS';
 	GRANT ALL PRIVILEGES ON $SITENAME.* TO '$SITENAME'@'localhost';
 	FLUSH PRIVILEGES;"
 	mysql -uroot -e "$SQL"
+fi
+if [[ $DBPACKAGE == "postgresql postgresql-contrib" ]]; then
+    su postgres -c "createuser -S -D -R -w $SITENAME"
+    su postgres -c "psql -c \"ALTER USER $SITENAME WITH PASSWORD '$DBPASS';\""
+    su postgres -c "createdb --owner $SITENAME $SITENAME"
+fi
+if [[ $DBPACKAGE != "" ]]; then
 	FINDTHIS="'default': {"
-	TOTHIS="'default': {\n        'ENGINE': 'django.db.backends.mysql',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '3306',\n    },\n    'SQLite': {"
+	TOTHIS="'default': {\n        'ENGINE': '$DBENGINE',\n        'NAME': '$SITENAME',\n        'USER': '$SITENAME',\n        'PASSWORD': '$DBPASS',\n        'HOST': 'localhost',\n        'PORT': '$DBPORT',\n    },\n    'SQLite': {"
 	sed -i -e "s/$FINDTHIS/$TOTHIS/g" ${HOMEDIR}/app/settings.py
 fi
 
 # activate Python virtual environment
 source $HOMEDIR/env/bin/activate
+
+# configure static folder
+echo 'STATIC_ROOT = os.path.join(BASE_DIR, "static")
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"' >> ${HOMEDIR}/app/settings.py
+mkdir -p ${HOMEDIR}/static/
+mkdir -p ${HOMEDIR}/media/
+
 
 # Print passwords and helpers
 echo "
@@ -151,3 +187,12 @@ migrations/
 media/
 env/"
 echo $GIT_IGNORE > /var/www/$SITENAME/.gitignore
+
+# Assigning permissions to the working directory
+chmod -R 755 /var/www/$SITENAME/
+chown -R $SITENAME:$SITENAME /var/www/$SITENAME/
+chown root:root /var/www/$SITENAME
+
+# collect static files
+cd $HOMEDIR
+./manage.py collectstatic --noinput >> $HOMEDIR/deploy.log

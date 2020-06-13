@@ -13,7 +13,9 @@ This script allows you to set up multiple Django websites easily. It automatical
 5. Install necessary dependencies: nginx, python3-pip, mysql-server/mariadb-server/postgresql, virtualenv, gunicorn, django, mysql-connector-python/psycopg2
 6. Create a new Django project, database, and configure Django to work with the MySQL/MariaDB/PostgreSQL database
 7. Create NGINX and Gunicorn config files (a separate config file for each site)
-8. Save passwords to `pass.txt` and create `.gitignore` file
+8. Create `.gitignore` file
+9. Add settings for static and media files
+10. Collect static files after installation
 
 ## Installation & Usage
 

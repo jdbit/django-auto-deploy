@@ -165,6 +165,8 @@ MEDIA_URL = "/media/"' >> ${HOMEDIR}/app/settings.py
 mkdir -p ${HOMEDIR}/static/
 mkdir -p ${HOMEDIR}/media/
 
+# add import os to settings.py
+sed -i '1s/^/import os\n/' ${HOMEDIR}/app/settings.py
 
 # Print passwords and helpers
 echo "

@@ -73,7 +73,7 @@ virtualenv -p python3 $HOMEDIR/env >> $HOMEDIR/deploy.log
 source $HOMEDIR/env/bin/activate
 pip install gunicorn django $DBCONNECTOR >> $HOMEDIR/deploy.log
 cd ${HOMEDIR}
-django-admin.py startproject app .
+django-admin startproject app .
 cd ${ROOTDIR}
 
 # Add the domain to ALLOWED_HOSTS in the settings.py

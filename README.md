@@ -33,22 +33,19 @@ All the sites will be placed to `/var/www/{SITENAME}` directory. Before running 
 
 ## Installation logs
 
-In the working directory `/var/www/$SITENAME` a log file will be created:
+In the project directory `/var/www/$SITENAME` a log file will be created:
 
-* `deploy.log` - all the bash script output will be saved to this file, you can check it to ensure there were no errors during the installation process
+* `deploy.log` - bash script output will be saved to this file, you can check it to ensure there were no errors during the installation process
 
 The script creates Python virtual environment in `/var/www/{SITENAME}/env` directory, you can activate the virtual environment by this command:
 
 ```
 source env/bin/activate
 ```
-and exit from the python virtual environment with this command:
+and exit from the python virtual environment with this command in your project directory:
 ```
 deactivate
 ```
-
-
-You can set up as many Django websites as you want with this script. 
 
 The script creates a new MySQL/MariaDB/PostgreSQL database, a new DB user, and adds the necessary DB settings to DATABASES dict in settings.py.
 
@@ -67,3 +64,5 @@ Use the script on your own risk. It was tested only with fresh Ubuntu 20.04 Serv
 ## Django hosting recommendation
 
 If you need a good and affordable hosting for your Django projects, [I would recommend DigitalOcean](https://m.do.co/c/008d3315ed7b) (get $100 in credit for 60 days through my referral link), you can run a few simple Django websites on a single virtual server just for 5$/month. I've tested it on the latest Ubuntu Server 20.04 installed on DigitalOcean 5$/month droplet.
+
+You can set up as many Django websites as you want with this script, just keep in mind that every site takes 100-300Mb of RAM on your server. I tested it with 5 sites installed on a [DigitalOcean droplet ($10/per month)](https://m.do.co/c/008d3315ed7b) with 2GB of RAM.

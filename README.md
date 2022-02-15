@@ -52,6 +52,12 @@ You can set up as many Django websites as you want with this script.
 
 The script creates a new MySQL/MariaDB/PostgreSQL database, a new DB user, and adds the necessary DB settings to DATABASES dict in settings.py.
 
+## Configuration files
+The script creates two configuration files for Nginx and Gunicorn:
+Nginx config located at: /etc/nginx/sites-available/{SITE_NAME}.conf
+Gunicorn config: /etc/systemd/system/gunicorn_{SITE_NAME}.service
+If you changed the Nginx config file, don't forget to reload Nginx with `sudo service nginx restart` command. If you changed any files in your Django project, you should reload the Gunicorn service with `sudo systemctl restart gunicorn_YOUR_SITE_NAME` command to aply changes.
+
 ## Warning
 
 Use the script on your own risk. It was tested only with fresh Ubuntu 20.04 Server installation. If you run it on your already configured server, there might be conflicts with other software installed.

@@ -59,10 +59,10 @@ If you changed the Nginx config file, don't forget to reload Nginx with `sudo se
 
 ## Warning
 
-Use the script on your own risk. It was tested only with fresh Ubuntu 20.04 Server installation. If you run it on your already configured server, there might be conflicts with other software installed.
+Use the script on your own risk. It was tested with fresh Ubuntu 20.04 and 22.04 Server installation. If you run it on your already configured server, there might be conflicts with other software installed.
 
 ## Django hosting recommendation
 
-If you need a good and affordable hosting for your Django projects, [I would recommend DigitalOcean](https://m.do.co/c/008d3315ed7b), you can get $100 in credit for 60 days through my referral link. You can run a few simple Django websites on a single virtual server just for 6$/month. I've tested it on the latest Ubuntu Server 22.04 installed on DigitalOcean 6$/month droplet.
+If you need a good and affordable hosting for your Django projects, [I would recommend DigitalOcean](https://m.do.co/c/008d3315ed7b), you can get $100 in credit for 60 days through my referral link. You can run a few simple Django websites on a single virtual server just for 6$/month. I've tested it on the latest Ubuntu Server 20.04 and 22.04 installed on DigitalOcean 6$/month droplet.
 
 You can set up as many Django websites as you want with this script, just keep in mind that every site takes 100-300Mb of RAM on your server. I tested it with 5 sites installed on a [DigitalOcean droplet ($12/per month)](https://m.do.co/c/008d3315ed7b) with 2GB of RAM.

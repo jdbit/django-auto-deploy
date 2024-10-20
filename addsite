@@ -74,7 +74,7 @@ rm ./tmp
 
 # Install necessary dependencies and log to deploy.log
 echo "Installing Nginx, Python pip, and database server..."
-apt install -y nginx python3-pip $DBPACKAGE libmysqlclient-dev &> $HOMEDIR/deploy.log
+apt install -y nginx pkg-config python3-pip $DBPACKAGE libmysqlclient-dev &> $HOMEDIR/deploy.log
 pip3 install virtualenv >> $HOMEDIR/deploy.log
 
 # Setup Python virtual environment, Django, Gunicorn, and Python MySQL connector
